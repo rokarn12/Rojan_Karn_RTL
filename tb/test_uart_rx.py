@@ -90,7 +90,8 @@ def bench():
         raise Exception("Error running build command")
 
     dut = Cosimulation(
-        "vvp -m myhdl %s.vvp -lxt2" % testbench,
+        #"vvp -m myhdl %s.vvp -lxt2" % testbench,
+        f"vvp -m {os.getenv('MYHDL_VPI')} %s.vvp -lxt2" % testbench,
         clk=clk,
         rst=rst,
         current_test=current_test,
@@ -132,8 +133,38 @@ def bench():
         yield clk.posedge
 
         yield clk.posedge
-        print("test 1: walk")
+
+        ## ROJAN - test 1 to test that the error is not detected with palindromes
+        yield clk.posedge
+        print("test 1: palindrome test")
         current_test.next = 1
+
+        # reset design
+        rst.next = 1
+        yield clk.posedge
+        rst.next = 0
+        yield clk.posedge
+
+        # use a higher prescale to expose timing bugs
+       # prescale.next = 4
+        yield delay(100)
+
+        # write any byte that is the same value reversed (10000001)
+        source.write(b'\x81')
+        yield delay(5000)
+
+        rx_data = bytearray(sink.read())
+        print(f"Byte received: {rx_data.hex()}")
+        assert rx_data == b'\x81', f"Expected b'\\x81', got {rx_data}"
+
+        # reset
+        rst.next = 1
+        yield clk.posedge
+        rst.next = 0
+        yield clk.posedge
+
+        print("test 2: walk")
+        current_test.next = 2
 
         source.write(b'\x00\x01\x02\x04\x08\x10\x20\x40\x80')
         yield clk.posedge
@@ -149,8 +180,8 @@ def bench():
         assert rx_data == b'\x00\x01\x02\x04\x08\x10\x20\x40\x80'
 
         yield clk.posedge
-        print("test 2: walk 2")
-        current_test.next = 2
+        print("test 3: walk 2")
+        current_test.next = 3
 
         source.write(b'\x00\x01\x03\x07\x0F\x1F\x3F\x7F\xFF')
         yield clk.posedge
@@ -166,8 +197,42 @@ def bench():
         assert rx_data == b'\x00\x01\x03\x07\x0F\x1F\x3F\x7F\xFF'
 
         yield delay(100)
+       
+        ## ROJAN - Test 4
+        ## Both tests before should already fail, this is just in case
+        yield clk.posedge
+        print("test 4: reverse bit order test")
+        current_test.next = 4
+
+        # reset design
+        rst.next = 1
+        yield clk.posedge
+        rst.next = 0
+        yield clk.posedge
+
+        # use a higher prescale to expose timing bugs
+        prescale.next = 4
+        yield delay(100)
+
+        # write any byte that is not the same value reversed (10000000)
+        source.write(b'\x10')
+        yield delay(5000)
+
+        rx_data = bytearray(sink.read())
+        print(f"Byte received: {rx_data.hex()}")
+        assert rx_data == b'\x10', f"Expected b'\\x10', got {rx_data}"
+
+        #source.write(b'\x55')
+        #yield delay(5000)
+
+        #rx_data = bytearray(sink.read())
+        #print(f"After byte 2: {rx_data}")
+        #assert rx_data == b'\x55', f"Expected b'\\x55', got {rx_data}"
+
+        yield delay(100)
 
         raise StopSimulation
+
 
     return instances()
 
@@ -179,4 +244,3 @@ def test_bench():
 if __name__ == '__main__':
     print("Running test...")
     test_bench()
-
