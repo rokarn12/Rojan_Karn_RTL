@@ -116,8 +116,6 @@ always @(posedge clk) begin
             end else if (bit_cnt > 1) begin
                 bit_cnt <= bit_cnt - 1;
                 prescale_reg <= (prescale << 3)-1;
-                //data_reg <= {rxd_reg, data_reg[DATA_WIDTH-1:1]};
-                // ROJAN - swap ordering of data reg
 		data_reg <= {data_reg[DATA_WIDTH-2:0], rxd_reg};
             end else if (bit_cnt == 1) begin
                 bit_cnt <= bit_cnt - 1;
@@ -132,8 +130,6 @@ always @(posedge clk) begin
         end else begin
             busy_reg <= 0;
             if (!rxd_reg) begin
-		// ROJAN - change prescale to -1 instead of -2
-                //prescale_reg <= (prescale << 2)-2;
                 prescale_reg <= (prescale << 2)-2;
                 bit_cnt <= DATA_WIDTH+2;
                 data_reg <= 0;
